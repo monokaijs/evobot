@@ -1,9 +1,9 @@
-import { AudioResource, createAudioResource, StreamType } from "@discordjs/voice";
+import { AudioResource, createAudioResource } from "@discordjs/voice";
 import youtube from "youtube-sr";
 import { i18n } from "../utils/i18n";
-import { videoPattern, isURL } from "../utils/patterns";
+import { isURL, videoPattern } from "../utils/patterns";
 
-const { stream, video_basic_info } = require("play-dl");
+import { setToken, stream, video_basic_info } from "play-dl";
 
 export interface SongData {
   url: string;
@@ -23,6 +23,14 @@ export class Song {
   }
 
   public static async from(url: string = "", search: string = "") {
+    if (process.env.USER_COOKIES) {
+      await setToken({
+        youtube: {
+          cookie: process.env.USER_COOKIES
+        }
+      });
+    }
+
     const isYoutubeUrl = videoPattern.test(url);
 
     let songInfo;
@@ -32,8 +40,8 @@ export class Song {
 
       return new this({
         url: songInfo.video_details.url,
-        title: songInfo.video_details.title,
-        duration: parseInt(songInfo.video_details.durationInSec)
+        title: songInfo.video_details.title ?? "",
+        duration: parseInt(songInfo.video_details.durationInSec.toString())
       });
     } else {
       const result = await youtube.searchOne(search);
@@ -54,8 +62,8 @@ export class Song {
 
       return new this({
         url: songInfo.video_details.url,
-        title: songInfo.video_details.title,
-        duration: parseInt(songInfo.video_details.durationInSec)
+        title: songInfo.video_details.title ?? "",
+        duration: parseInt(songInfo.video_details.durationInSec.toString())
       });
     }
   }
@@ -69,7 +77,7 @@ export class Song {
       playStream = await stream(this.url);
     }
 
-    if (!stream) return;
+    if (!stream || !playStream) return;
 
     return createAudioResource(playStream.stream, { metadata: this, inputType: playStream.type, inlineVolume: true });
   }
